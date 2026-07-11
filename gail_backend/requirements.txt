@@ -1,9 +1,0 @@
-Flask
-flask-cors
-gunicorn
-PyMuPDF
-pytesseract
-Pillow
-rapidfuzz
-python-dateutil
-python-docx
