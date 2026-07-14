@@ -1,4 +1,3 @@
-"""Layer 0 — PDF text extraction (with parallelized OCR fallback for scanned pages)."""
 import io
 import re
 import fitz  # PyMuPDF
@@ -6,12 +5,16 @@ import pytesseract
 from PIL import Image
 from concurrent.futures import ThreadPoolExecutor
 
-MIN_TEXT_CHARS = 40
-OCR_DPI = 200        
-OCR_WORKERS = 4      
+# import platform
+# if platform.system() == "Windows":
+#     pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
+MIN_TEXT_CHARS = 40
+OCR_DPI = 150        
+OCR_WORKERS = 1    
 
 def _ocr_page(page):
+    """Returns (text, used_ocr) for a single page. Runs in a worker thread."""
     text = page.get_text("text")
     if len(text.strip()) >= MIN_TEXT_CHARS:
         return text, False  
@@ -25,7 +28,6 @@ def extract(pdf_bytes):
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     page_list = list(doc)
 
-    
     with ThreadPoolExecutor(max_workers=OCR_WORKERS) as pool:
         results = list(pool.map(_ocr_page, page_list))
 
