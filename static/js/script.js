@@ -50,11 +50,11 @@ function fileIcon(name) {
 }
 
 
-let bgQueue     = [];   
-let reviewQueue = [];   
+let bgQueue     = [];
+let reviewQueue = [];
 let reviewIdx   = 0;
 let completedDocs = [];
-let bgComments  = {};   
+let bgComments  = {};
 
 
 document.addEventListener('DOMContentLoaded', loadCompletedFromServer);
@@ -65,7 +65,7 @@ async function loadCompletedFromServer() {
     if (!res.ok) throw new Error('Failed to fetch completed docs');
     const docs = await res.json();
     completedDocs = docs.map(d => ({
-      id: d.id,                       
+      id: d.id,
       file: { name: d.filename },
       bgData: d.bgData,
       comments: d.comments || {},
@@ -150,8 +150,8 @@ function bgRenderQueue() {
   if (!bgQueue.length) { wrap.innerHTML = ''; return; }
   wrap.innerHTML = bgQueue.map((q, i) => {
     const icon = q.status === 'pending'    ? '<span style="color:var(--muted)">⏳</span>'
-               : q.status === 'validating' ? '<span style="color:#9A6B14">⟳</span>'
-               : q.status === 'done'       ? '<span style="color:#1E6E48">✔</span>'
+               : q.status === 'validating' ? '<span style="color:#FBBF24">⟳</span>'
+               : q.status === 'done'       ? '<span style="color:#34D399">✔</span>'
                :                            '<span style="color:var(--red)">✖</span>';
     return `<div class="file-row" style="border:0.5px solid var(--border);border-radius:7px;margin-bottom:6px">
       <span style="font-size:18px">${icon}</span>
@@ -198,7 +198,7 @@ async function bgValidateAll() {
   const workerCount = Math.min(CONCURRENCY, bgQueue.length);
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
-  
+
   bgQueue.forEach(q => {
     reviewQueue.push({ ...q, comments: {} });
   });
@@ -232,19 +232,17 @@ function bgRenderReview() {
   const bgData = item.bgData;
   bgPdfZoom = 1;
 
-  
   const strip = reviewQueue.map((it, idx) => `
     <div onclick="bgGoto(${idx})" style="
       cursor:pointer;padding:5px 10px;border-radius:6px;font-size:11px;
       border:1.5px solid ${idx===reviewIdx ? 'var(--green-mid)' : 'var(--border)'};
-      background:${idx===reviewIdx ? 'var(--green-light)' : 'white'};
+      background:${idx===reviewIdx ? 'var(--green-light)' : 'var(--white)'};
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;
       display:flex;align-items:center;gap:4px">
       ${it.bgData ? (it.bgData.verdict === 'COMPLIANT' ? '✔' : it.bgData.verdict === 'DISCREPANT' ? '✖' : '⚠') : '📄'}
       <span style="overflow:hidden;text-overflow:ellipsis">${it.file.name}</span>
     </div>`).join('');
 
-  
   const palette = { pass:['#1E6E48','#E4F0E8'], warn:['#9A6B14','#F5ECD8'], fail:['#A92E26','#F6E2DF'] };
   let rightContent = '';
 
@@ -252,7 +250,6 @@ function bgRenderReview() {
     const vcolors = { COMPLIANT:'#1E6E48', 'NEEDS REVIEW':'#9A6B14', DISCREPANT:'#A92E26' };
     const vcol = vcolors[bgData.verdict] || '#333';
 
-    
     const fieldMap = [
       ['BG number', bgData.fields.bg_number],
       ['Bank', bgData.fields.issuing_bank],
@@ -263,41 +260,39 @@ function bgRenderReview() {
     ].filter(([,v]) => v);
 
     const fieldRows = fieldMap.map(([k,v]) =>
-      `<tr><td style="color:#4A6172;padding:3px 12px 3px 0;font-size:11px">${k}</td>
+      `<tr><td style="color:var(--muted);padding:3px 12px 3px 0;font-size:11px">${k}</td>
        <td style="font-family:monospace;font-size:11px">${v}</td></tr>`
     ).join('');
 
-    
     const visibleChecks = bgData.checks.filter(c => c.status !== 'info');
     const checkRows = visibleChecks.map(c => {
       const [fg,bg2] = palette[c.status] || ['#333','#eee'];
       const lbl = c.status === 'warn' ? 'REVIEW' : c.status.toUpperCase();
-      return `<div style="padding:5px 0;border-bottom:1px solid #EDF1EC;font-size:12px">
+      return `<div style="padding:5px 0;border-bottom:1px solid var(--border-soft);font-size:12px">
         <span style="font-family:monospace;font-size:10px;font-weight:700;padding:1px 6px;background:${bg2};color:${fg}">${lbl}</span>
         <b style="margin-left:6px">${c.label}</b>
       </div>`;
     }).join('');
 
-    
     const clauseRows = (bgData.clauses || []).map(cl => {
       const [fg,bg2] = palette[cl.status] || ['#333','#eee'];
       const lbl = cl.status === 'warn' ? 'REVIEW' : cl.status.toUpperCase();
       const needsComment = cl.status === 'warn' || cl.status === 'fail';
       const saved = item.comments[cl.id] || '';
-      return `<div style="padding:9px 0;border-bottom:1px solid #EDF1EC">
+      return `<div style="padding:9px 0;border-bottom:1px solid var(--border-soft)">
         <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
           <span style="font-family:monospace;font-size:10px;font-weight:700;padding:2px 7px;background:${bg2};color:${fg};letter-spacing:1px">${lbl}</span>
           <b style="font-size:13px">${cl.id} — ${cl.title}</b>
-          <span style="font-family:monospace;font-size:11px;color:#4A6172">${cl.score}% match</span>
+          <span style="font-family:monospace;font-size:11px;color:var(--muted)">${cl.score}% match</span>
         </div>
-        ${cl.note ? `<div style="font-size:11px;color:#4A6172;margin-top:3px">${cl.note}</div>` : ''}
-        <div style="font-size:12px;line-height:1.6;margin-top:5px;padding:7px 10px;background:#FBFCFA;border:0.5px solid #E2E8E1;border-radius:6px">${cl.diff}</div>
+        ${cl.note ? `<div style="font-size:11px;color:var(--muted);margin-top:3px">${cl.note}</div>` : ''}
+        <div style="font-size:12px;line-height:1.6;margin-top:5px;padding:7px 10px;background:rgba(255,255,255,0.03);border:0.5px solid var(--border-soft);border-radius:6px">${cl.diff}</div>
         ${needsComment ? `<div style="margin-top:7px">
-          <label style="font-size:11px;font-weight:600;color:var(--navy);display:block;margin-bottom:3px">
+          <label style="font-size:11px;font-weight:600;color:var(--text);display:block;margin-bottom:3px">
             <i class="ti ti-message"></i> Reviewer comment — ${cl.id}
           </label>
           <textarea id="rv-comment-${cl.id}" rows="2"
-            style="width:100%;padding:6px 10px;border:0.5px solid var(--border);border-radius:6px;font-size:12px;resize:vertical;outline:none;font-family:inherit"
+            style="width:100%;padding:6px 10px;border:0.5px solid var(--border);border-radius:6px;font-size:12px;resize:vertical;outline:none;font-family:inherit;background:rgba(255,255,255,0.03);color:var(--text)"
             placeholder="Add your remark or decision for this clause..."
             onchange="bgSaveComment('${cl.id}', this.value)"
           >${saved}</textarea>
@@ -309,35 +304,36 @@ function bgRenderReview() {
       <div style="padding:0 0 8px 0;border-bottom:1px solid var(--border);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
         <div>
           <div style="font-size:13px;font-weight:600">${item.file.name}</div>
-          <div style="font-size:10px;font-family:monospace;color:#4A6172;margin-top:2px">${bgData.kind.toUpperCase()} · ${bgData.page_count} PAGES</div>
+          <div style="font-size:10px;font-family:monospace;color:var(--muted);margin-top:2px">${bgData.kind.toUpperCase()} · ${bgData.page_count} PAGES</div>
         </div>
         <div style="border:2px double ${vcol};color:${vcol};padding:4px 10px;transform:rotate(-3deg);font-family:monospace;font-weight:700;letter-spacing:2px;font-size:11px">${bgData.verdict}</div>
       </div>
 
-      <div style="font-size:10px;letter-spacing:2px;color:#4A6172;font-weight:700;margin-bottom:5px">EXTRACTED FIELDS</div>
+      <div style="font-size:10px;letter-spacing:2px;color:var(--muted);font-weight:700;margin-bottom:5px">EXTRACTED FIELDS</div>
       <table style="border-collapse:collapse;margin-bottom:12px;width:100%">${fieldRows}</table>
 
-      <div style="font-size:10px;letter-spacing:2px;color:#4A6172;font-weight:700;margin-bottom:4px">
+      <div style="font-size:10px;letter-spacing:2px;color:var(--muted);font-weight:700;margin-bottom:4px">
         CHECKS — ${bgData.counts.fail} FAIL · ${bgData.counts.warn} REVIEW · ${bgData.counts.pass} PASS
       </div>
       <div style="margin-bottom:12px">${checkRows}</div>
 
-      <div style="font-size:10px;letter-spacing:2px;color:#4A6172;font-weight:700;margin-bottom:4px">CLAUSE-BY-CLAUSE vs F-4</div>
-      <div style="font-size:11px;color:#4A6172;margin-bottom:8px">Add a comment on REVIEW/FAIL clauses before marking complete.</div>
+      <div style="font-size:10px;letter-spacing:2px;color:var(--muted);font-weight:700;margin-bottom:4px">CLAUSE-BY-CLAUSE vs F-4</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Add a comment on REVIEW/FAIL clauses before marking complete.</div>
       ${clauseRows}`;
   } else {
-    rightContent = `<div style="background:var(--green-light);border-radius:8px;padding:12px 14px;font-size:13px;color:#1E6E48">
+    rightContent = `<div style="background:var(--green-light);border-radius:8px;padding:12px 14px;font-size:13px;color:var(--green-mid)">
       <i class="ti ti-info-circle"></i> No BG validation data — validation may have failed. You can still mark this as completed.
     </div>`;
   }
 
   panel.innerHTML = `
     <div style="padding:14px 18px">
-      <!-- Arrow nav + file name -->
+      <!-- Arrow nav + file name + per-file CSV export -->
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
         <button class="btn btn-secondary btn-sm" onclick="bgNav(-1)" ${reviewIdx===0?'disabled':''}><i class="ti ti-chevron-left"></i></button>
-        <span style="font-size:13px;font-weight:600;color:var(--navy);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.file.name}</span>
+        <span style="font-size:13px;font-weight:600;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.file.name}</span>
         <span style="font-size:12px;color:var(--muted);white-space:nowrap">${reviewIdx+1} / ${reviewQueue.length}</span>
+        <button class="btn btn-secondary btn-sm" onclick="bgExportSingleCSV(${reviewIdx})"><i class="ti ti-download"></i> CSV</button>
         <button class="btn btn-secondary btn-sm" onclick="bgNav(1)" ${reviewIdx===reviewQueue.length-1?'disabled':''}><i class="ti ti-chevron-right"></i></button>
       </div>
 
@@ -364,23 +360,23 @@ function bgRenderReview() {
         </div>
 
         <!-- Review panel -->
-        <div style="border:0.5px solid var(--border);border-radius:8px;padding:14px;background:white;max-height:640px;overflow-y:auto">
+        <div style="border:0.5px solid var(--border);border-radius:8px;padding:14px;background:var(--white);max-height:640px;overflow-y:auto">
           ${rightContent}
 
           <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
-            <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--navy);margin-bottom:8px">DECISION</div>
+            <div style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--text);margin-bottom:8px">DECISION</div>
             <div style="display:flex;gap:8px;margin-bottom:10px">
               <button type="button" onclick="bgSetDecision('valid')"
                 style="flex:1;padding:9px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;
                   border:1.5px solid ${item.decision === 'valid' ? '#1E6E48' : 'var(--border)'};
-                  background:${item.decision === 'valid' ? '#E4F0E8' : 'white'};
+                  background:${item.decision === 'valid' ? '#E4F0E8' : 'var(--white)'};
                   color:${item.decision === 'valid' ? '#1E6E48' : 'var(--muted)'}">
                 <i class="ti ti-check"></i> Valid
               </button>
               <button type="button" onclick="bgSetDecision('invalid')"
                 style="flex:1;padding:9px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;
                   border:1.5px solid ${item.decision === 'invalid' ? '#A92E26' : 'var(--border)'};
-                  background:${item.decision === 'invalid' ? '#F6E2DF' : 'white'};
+                  background:${item.decision === 'invalid' ? '#F6E2DF' : 'var(--white)'};
                   color:${item.decision === 'invalid' ? '#A92E26' : 'var(--muted)'}">
                 <i class="ti ti-x"></i> Invalid
               </button>
@@ -399,7 +395,6 @@ function bgRenderReview() {
       </div>
     </div>`;
 
-  
   const pdfContainer = document.getElementById('bg-pdf-container');
   if (pdfContainer) bgRenderPdfWithHighlights(item, pdfContainer);
 }
@@ -419,7 +414,7 @@ if (window.pdfjsLib) {
   console.warn('pdfjsLib did not load — PDF highlight rendering will fall back to a plain iframe (no highlight boxes will be visible). Check that the <script src=".../pdf.js/2.16.105/pdf.min.js"> tag in index.html <head> is loading (open Network tab and look for pdf.min.js).');
 }
 
-let bgPdfZoom = 1; 
+let bgPdfZoom = 1;
 
 function bgZoomPdf(delta) {
   bgPdfZoom = Math.min(3, Math.max(0.4, +(bgPdfZoom + delta).toFixed(2)));
@@ -443,7 +438,6 @@ async function bgRenderPdfWithHighlights(item, containerEl) {
     const pdf = await pdfjsLib.getDocument(item.objectUrl).promise;
     containerEl.innerHTML = '';
 
-    
     const byPage = {};
     (item.bgData?.clauses || []).forEach(cl => {
       if (cl.highlight && typeof cl.highlight.page === 'number') {
@@ -475,7 +469,6 @@ async function bgRenderPdfWithHighlights(item, containerEl) {
         : null;
       await page.render({ canvasContext: ctx, viewport, transform: renderTransform }).promise;
 
-      
       const clausesHere = byPage[pageNum - 1] || [];
       clausesHere.forEach(cl => {
         const isFail = cl.status === 'fail';
@@ -508,7 +501,7 @@ function bgSaveComment(clauseId, text) {
 function bgSetDecision(decision) {
   if (!reviewQueue[reviewIdx]) return;
   reviewQueue[reviewIdx].decision = decision;
-  bgRenderReview(); 
+  bgRenderReview();
 }
 
 function bgSaveReason(text) {
@@ -521,7 +514,6 @@ async function bgMarkCompleted() {
   if (!reviewQueue[reviewIdx]) return;
   const item = reviewQueue[reviewIdx];
 
-  
   (item.bgData?.clauses || []).forEach(cl => {
     if (cl.status === 'warn' || cl.status === 'fail') {
       const el = document.getElementById('rv-comment-' + cl.id);
@@ -593,6 +585,61 @@ function bgReject() {
   showToast(name + ' discarded.');
 }
 
+// ── Export a SINGLE file's review report as CSV (available while still in AI Review) ──
+function bgExportSingleCSV(idx) {
+  const item = reviewQueue[idx];
+  if (!item) { showToast('File not found.'); return; }
+  const bgData = item.bgData;
+  if (!bgData) { showToast('No validation data for this file yet.'); return; }
+
+  const escapeCsv = (val) => {
+    const s = (val === undefined || val === null) ? '' : String(val);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+
+  const rows = [];
+  rows.push(['Section', 'Item', 'Status / Value', 'Score', 'Comment'].map(escapeCsv).join(','));
+  rows.push(['File', item.file.name, '', '', ''].map(escapeCsv).join(','));
+  rows.push(['Verdict', bgData.verdict, '', '', ''].map(escapeCsv).join(','));
+
+  const fieldMap = [
+    ['BG number', bgData.fields.bg_number],
+    ['Bank', bgData.fields.issuing_bank],
+    ['Amount', bgData.fields.amount_figures],
+    ['Expiry', bgData.fields.expiry],
+    ['Claim expiry', bgData.fields.claim_expiry],
+    ['PO / LOA', bgData.fields.po_reference],
+  ];
+  fieldMap.forEach(([k, v]) => {
+    if (v) rows.push(['Field', k, v, '', ''].map(escapeCsv).join(','));
+  });
+
+  (bgData.checks || []).filter(c => c.status !== 'info').forEach(c => {
+    rows.push(['Check', c.label, c.status.toUpperCase(), '', ''].map(escapeCsv).join(','));
+  });
+
+  (bgData.clauses || []).forEach(cl => {
+    const comment = (item.comments && item.comments[cl.id]) || '';
+    rows.push(['Clause', cl.id + ' - ' + cl.title, cl.status.toUpperCase(), cl.score, comment].map(escapeCsv).join(','));
+  });
+
+  if (item.decision) {
+    rows.push(['Decision', item.decision, '', '', item.reason || ''].map(escapeCsv).join(','));
+  }
+
+  const csv  = rows.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = (item.file.name.replace(/\.pdf$/i, '') || 'bg-review') + '-review.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('CSV exported for ' + item.file.name);
+}
+
 function bgRenderCompleted() {
   const panel = document.getElementById('bgpanel-completed');
   if (!completedDocs.length) {
@@ -611,18 +658,17 @@ function bgRenderCompleted() {
     const verd = bgData ? bgData.verdict : '—';
     const vcol = vcolors[verd] || '#666';
 
-  
     const flagged = bgData ? (bgData.clauses || []).filter(cl => cl.status !== 'pass') : [];
     const flaggedHtml = flagged.map(cl => {
       const [fg,bg2] = palette[cl.status] || ['#333','#eee'];
       const lbl = cl.status === 'warn' ? 'REVIEW' : cl.status.toUpperCase();
       const comment = item.comments[cl.id];
-      return `<div style="padding:6px 0;border-bottom:1px solid #EDF1EC">
+      return `<div style="padding:6px 0;border-bottom:1px solid var(--border-soft)">
         <span style="font-family:monospace;font-size:10px;font-weight:700;padding:1px 6px;background:${bg2};color:${fg}">${lbl}</span>
         <b style="font-size:12px;margin-left:6px">${cl.id}</b> — ${cl.title}
-        <span style="font-size:11px;color:#4A6172;margin-left:6px">${cl.score}%</span>
-        ${comment ? `<div style="margin-top:5px;padding:5px 9px;background:#FFFDF3;border:0.5px solid #E8E0C0;border-radius:5px;font-size:11px">
-          <i class="ti ti-message" style="color:#9A6B14"></i> <b>${cl.id}:</b> ${comment}
+        <span style="font-size:11px;color:var(--muted);margin-left:6px">${cl.score}%</span>
+        ${comment ? `<div style="margin-top:5px;padding:5px 9px;background:rgba(245,158,11,0.12);border:0.5px solid rgba(245,158,11,0.35);border-radius:5px;font-size:11px">
+          <i class="ti ti-message" style="color:#FBBF24"></i> <b>${cl.id}:</b> ${comment}
         </div>` : ''}
       </div>`;
     }).join('');
@@ -633,10 +679,10 @@ function bgRenderCompleted() {
       ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px;background:#F6E2DF;color:#A92E26"><i class="ti ti-x"></i> INVALID</span>`
       : '';
 
-    return `<div style="background:white;border:0.5px solid var(--border);border-radius:8px;padding:14px;margin:14px 18px">
+    return `<div style="background:var(--white);border:0.5px solid var(--border);border-radius:8px;padding:14px;margin:14px 18px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
         <div>
-          <div style="font-size:14px;font-weight:600;color:var(--navy)">📄 ${item.file.name}</div>
+          <div style="font-size:14px;font-weight:600;color:var(--text)">📄 ${item.file.name}</div>
           <div style="font-size:11px;color:var(--muted);margin-top:2px">Completed: ${item.completedAt}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
@@ -645,11 +691,11 @@ function bgRenderCompleted() {
           <button class="btn btn-danger btn-sm" onclick="bgRemoveCompleted(${idx})"><i class="ti ti-trash"></i></button>
         </div>
       </div>
-      ${item.reason ? `<div style="margin-top:10px;padding:8px 10px;background:#F5F7F8;border:0.5px solid var(--border-soft);border-radius:6px;font-size:12px">
-        <b style="color:var(--navy)">Reason:</b> ${item.reason}
+      ${item.reason ? `<div style="margin-top:10px;padding:8px 10px;background:rgba(255,255,255,0.04);border:0.5px solid var(--border-soft);border-radius:6px;font-size:12px">
+        <b style="color:var(--text)">Reason:</b> ${item.reason}
       </div>` : ''}
       ${flaggedHtml ? `<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
-        <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:var(--navy);margin-bottom:6px">FLAGGED CLAUSES &amp; COMMENTS</div>
+        <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:var(--text);margin-bottom:6px">FLAGGED CLAUSES &amp; COMMENTS</div>
         ${flaggedHtml}
       </div>` : ''}
     </div>`;
@@ -662,7 +708,6 @@ function bgRenderCompleted() {
     <div style="padding-bottom:1rem">${cards}</div>`;
 }
 
-// ── Export every completed review as a CSV file ──
 function bgExportCompletedCSV() {
   if (!completedDocs.length) { showToast('No completed reviews to export yet.'); return; }
 
