@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 import os
 import json
+import base64
 import sqlite3
 from datetime import datetime
 
@@ -149,6 +150,73 @@ def validate_bg():
         return jsonify({"error": f"Validation failed: {str(e)}"}), 500
 
 
+# -------------------------------------------------------
+# ROUTE: /api/validate-bg
+# JSON-based API — accepts a file as base64 text in the request body
+# instead of multipart/form-data. Useful for calling this validator
+# from external tools (e.g. an Automation Anywhere bot, another
+# service, Postman, curl) rather than from this website's own UI.
+#
+# Expected request body (JSON):
+# {
+#   "filename": "guarantee.pdf",
+#   "file_base64": "JVBERi0xLjQKJ...",   <- base64-encoded file content
+#   "expected_amount": "500000",          <- optional
+#   "expected_po": "GAIL/C/123"           <- optional
+# }
+# -------------------------------------------------------
+@app.route("/api/validate-bg", methods=["POST"])
+def api_validate_bg():
+    print("[/api/validate-bg] Request received", flush=True)
+
+    if not BG_VALIDATOR_AVAILABLE:
+        return jsonify({"error": "BG Validator not installed."}), 500
+
+    data = request.get_json(force=True, silent=True)
+    if not data:
+        return jsonify({"error": "Request body must be JSON"}), 400
+
+    filename = data.get("filename")
+    file_b64 = data.get("file_base64")
+
+    if not filename:
+        return jsonify({"error": "'filename' is required"}), 400
+    if not file_b64:
+        return jsonify({"error": "'file_base64' is required"}), 400
+    if not filename.lower().endswith((".pdf", ".docx")):
+        return jsonify({"error": "Only .pdf or .docx filenames are supported"}), 400
+
+    # Some callers prefix base64 with "data:application/pdf;base64,....".
+    # Strip that prefix if present, so we only decode the actual base64 part.
+    if "," in file_b64 and file_b64.strip().startswith("data:"):
+        file_b64 = file_b64.split(",", 1)[1]
+
+    try:
+        file_bytes = base64.b64decode(file_b64)
+    except Exception as e:
+        return jsonify({"error": f"Invalid base64 in 'file_base64': {str(e)}"}), 400
+
+    print(f"[/api/validate-bg] File: {filename}, {len(file_bytes)} bytes decoded", flush=True)
+
+    expected_amount = data.get("expected_amount") or None
+    expected_po     = data.get("expected_po") or None
+
+    try:
+        result = validate_pdf(
+            file_bytes,
+            filename=filename,
+            expected_amount=expected_amount,
+            expected_po=expected_po
+        )
+        print(f"[/api/validate-bg] Done: verdict={result['verdict']}", flush=True)
+        return jsonify(result)
+    except Exception as e:
+        import traceback
+        print(f"[/api/validate-bg] EXCEPTION: {e}", flush=True)
+        traceback.print_exc()
+        return jsonify({"error": f"Validation failed: {str(e)}"}), 500
+
+
 @app.route("/health", methods=["GET"])
 def health_check():
     try:
@@ -167,6 +235,4 @@ def health_check():
 if __name__ == "__main__":
     print("\n🚀 GAIL Backend starting at http://localhost:5000")
     print(f"   Completed-documents DB: {DB_PATH}")
-    print("   First upload will open a browser for Google login")
-    print("   After that, token.json is used automatically\n")
     app.run(debug=True, port=5000)
